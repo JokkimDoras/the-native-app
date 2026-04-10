@@ -7,17 +7,29 @@ import { router } from "expo-router";
 export default function SignupScreen() {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
+  const [ error,setError] = useState(null);
 
   const handleSignup = async () => {
     try {
       const user = await createUserWithEmailAndPassword(auth, email, password);
       console.log("User created:", user.user.email);
 
-      // 👉 go to login after signup
       router.replace('/login');
 
-    } catch (err) {
-      console.log(err);
+    } catch (err: any) {
+      switch (err.code) {
+        case 'auth/email-already-in-use':
+          setError('An account with this email already exists');
+          break;
+        case 'auth/invalid-email':
+          setError('Please enter a valid email');
+          break;
+        case 'auth/weak-password':
+          setError('Password must be at least 6 characters');
+          break;
+        default:
+          setError('Something went wrong. Try again');
+      }
     }
   };
 
@@ -39,6 +51,8 @@ export default function SignupScreen() {
         value={password}
         onChangeText={setPassword}
       />
+
+{error && <Text style={styles.errorText}>{error}</Text>}
 
       <Pressable style={styles.button} onPress={handleSignup}>
         <Text style={styles.buttonText}>Sign Up</Text>
@@ -93,4 +107,10 @@ const styles = StyleSheet.create({
     color: '#000',
     fontWeight: 'bold',
   },
+  errorText:{
+    color: 'red',
+    fontSize: 13,
+    marginBottom: 10,
+  }
+  
 });
