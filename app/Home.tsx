@@ -1,5 +1,6 @@
-import { View, Text, StyleSheet, FlatList } from 'react-native';
-import { collection, query, where, onSnapshot, orderBy } from "firebase/firestore";
+import { View, Text, StyleSheet, FlatList,Pressable } from 'react-native';
+import { router, Router } from 'expo-router';
+import { collection, query, where, onSnapshot, orderBy , deleteDoc , doc } from "firebase/firestore";
 import { useState, useEffect } from "react";
 import { db, auth } from '@/lib/firebase';
 
@@ -40,6 +41,12 @@ export default function HomeScreen() {
     return () => unsubscribeAuth();
   }, []);
 
+
+  const handleDelete = async(taskID:string) => {
+    await deleteDoc(doc(db,'tasks',taskID));
+  }
+
+
   return (
     <View style={styles.container}>
       <View style={styles.header}>
@@ -71,16 +78,22 @@ export default function HomeScreen() {
             </View>
             <Text style={styles.taskDescription}>{item.description}</Text>
             <Text style={styles.taskDate}>📅 {item.dueDate}</Text>
+            <Pressable onPress={() => handleDelete(item.id)} style={styles.deleteBtn}>
+                <Text style={styles.deleteBtnText}>🗑️ Delete</Text>
+            </Pressable>
           </View>
         )}
         ListEmptyComponent={
           <Text style={styles.emptyText}>No tasks yet. Add one!</Text>
         }
       />
+      <Pressable style={styles.fab} onPress={() => router.push('/addTask')}>
+        <Text style={styles.fabText}>+</Text>
+      </Pressable>
     </View>
   );
 }
-
+ 
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: '#f5f5f5' },
   header: {
@@ -117,5 +130,29 @@ const styles = StyleSheet.create({
   taskDescription: { fontSize: 13, color: '#666', marginBottom: 6 },
   taskDate: { fontSize: 12, color: '#999', marginTop: 2 },
   completed: { textDecorationLine: 'line-through', color: '#aaa' },
-  emptyText: { textAlign: 'center', marginTop: 60, color: '#aaa', fontSize: 16 },
+  emptyText: { textAlign: 'center', marginTop: 60, color: '#aaa', fontSize: 16 
+  },
+  fab: {
+    position: 'absolute',
+    bottom: 24,
+    alignSelf: 'center',
+    backgroundColor: '#6C63FF',
+    width: 60,
+    height: 60,
+    borderRadius: 30,
+    justifyContent: 'center',
+    alignItems: 'center',
+    elevation: 5,
+  },
+  fabText: { color: 'white', fontSize: 30, fontWeight: 'bold' 
+  },
+  deleteBtn: {
+    marginTop: 8,
+    alignSelf: 'flex-end',
+  },
+  deleteBtnText: {
+    color: '#FF5B5B',
+    fontSize: 13,
+    fontWeight: '600',
+  },
 });
