@@ -1,6 +1,6 @@
-import { View, Text, StyleSheet, FlatList,Pressable } from 'react-native';
-import { router, Router } from 'expo-router';
-import { collection, query, where, onSnapshot, orderBy , deleteDoc , doc } from "firebase/firestore";
+import { View, Text, StyleSheet, FlatList, Pressable } from 'react-native';
+import { router } from 'expo-router';
+import { collection, query, where, onSnapshot, orderBy, deleteDoc, doc ,updateDoc} from "firebase/firestore";
 import { useState, useEffect } from "react";
 import { db, auth } from '@/lib/firebase';
 
@@ -41,118 +41,236 @@ export default function HomeScreen() {
     return () => unsubscribeAuth();
   }, []);
 
+  const handleDelete = async (taskID: string) => {
+    await deleteDoc(doc(db, 'tasks', taskID));
+  };
 
-  const handleDelete = async(taskID:string) => {
-    await deleteDoc(doc(db,'tasks',taskID));
-  }
+  const handleToggleComplete = async (taskID: string, completed: boolean) => {
+    await updateDoc(doc(db, 'tasks', taskID), {
+      completed: !completed
+    });
+  };
 
+  const priorityColor = (priority: string) => {
+    if (priority === 'high') return { bg: '#FFE5E5', text: '#FF5B5B' };
+    if (priority === 'medium') return { bg: '#FFF3E0', text: '#FFB830' };
+    return { bg: '#E8F5E9', text: '#4CAF50' };
+  };
 
   return (
     <View style={styles.container}>
+
       <View style={styles.header}>
-        <Text style={styles.date}>{new Date().toDateString()}</Text>
-        <Text style={styles.title}>My Tasks</Text>
+        <View>
+          <Text style={styles.greeting}>Good day 👋</Text>
+          <Text style={styles.title}>My Tasks</Text>
+          <Text style={styles.date}>{new Date().toDateString()}</Text>
+        </View>
+        <View style={styles.taskCount}>
+          <Text style={styles.taskCountNumber}>{tasks.length}</Text>
+          <Text style={styles.taskCountLabel}>Tasks</Text>
+        </View>
       </View>
 
       <FlatList
         data={tasks}
         keyExtractor={(item) => item.id}
-        contentContainerStyle={{ padding: 16 }}
-        renderItem={({ item }) => (
-          <View style={styles.taskCard}>
-            <View style={styles.taskTop}>
-              <Text style={[styles.taskTitle, item.completed && styles.completed]}>
-                {item.title}
-              </Text>
-              <View style={[styles.priorityBadge, {
-                backgroundColor:
-                  item.priority === 'high' ? '#FFE5E5' :
-                  item.priority === 'medium' ? '#FFF3E0' : '#E8F5E9'
-              }]}>
-                <Text style={[styles.priorityText, {
-                  color:
-                    item.priority === 'high' ? '#FF5B5B' :
-                    item.priority === 'medium' ? '#FFB830' : '#4CAF50'
-                }]}>{item.priority}</Text>
+        contentContainerStyle={{ padding: 16, paddingBottom: 100 }}
+        showsVerticalScrollIndicator={false}
+        renderItem={({ item }) => {
+          const colors = priorityColor(item.priority);
+          return (
+            <View style={styles.taskCard}>
+
+              <View style={[styles.priorityBar, { backgroundColor: colors.text }]} />
+              
+              <View style={styles.taskContent}>
+                <View style={styles.taskTop}>
+                  <Text style={[styles.taskTitle, item.completed && styles.completed]} numberOfLines={1}>
+                    {item.title}
+                  </Text>
+                  <View style={[styles.priorityBadge, { backgroundColor: colors.bg }]}>
+                    <Text style={[styles.priorityText, { color: colors.text }]}>
+                      {item.priority}
+                    </Text>
+                  </View>
+                </View>
+
+                {item.description ? (
+                  <Text style={styles.taskDescription} numberOfLines={2}>
+                    {item.description}
+                  </Text>
+                ) : null}
+
+                <Text style={styles.taskDate}>📅 {item.dueDate}</Text>
+
+                
+
+
+<View style={styles.actionRow}>
+  <Pressable
+    style={[styles.completeBtn, item.completed && styles.completedBtn]}
+    onPress={() => handleToggleComplete(item.id, item.completed)}
+  >
+    <Text style={[styles.completeBtnText, item.completed && styles.completedBtnText]}>
+      {item.completed ? '✅ Done' : '⬜ Todo'}
+    </Text>
+  </Pressable>
+
+  <Pressable
+    style={styles.editBtn}
+    onPress={() => router.push(`/${item.id}`)}
+  >
+    <Text style={styles.editBtnText}>✏️ Edit</Text>
+  </Pressable>
+
+  <Pressable
+    style={styles.deleteBtn}
+    onPress={() => handleDelete(item.id)}
+  >
+    <Text style={styles.deleteBtnText}>🗑️ Delete</Text>
+  </Pressable>
+</View>
               </View>
             </View>
-            <Text style={styles.taskDescription}>{item.description}</Text>
-            <Text style={styles.taskDate}>📅 {item.dueDate}</Text>
-            <Pressable onPress={() => handleDelete(item.id)} style={styles.deleteBtn}>
-                <Text style={styles.deleteBtnText}>🗑️ Delete</Text>
-            </Pressable>
-          </View>
-        )}
+          );
+        }}
         ListEmptyComponent={
-          <Text style={styles.emptyText}>No tasks yet. Add one!</Text>
+          <View style={styles.emptyContainer}>
+            <Text style={styles.emptyIcon}>📋</Text>
+            <Text style={styles.emptyText}>No tasks yet</Text>
+            <Text style={styles.emptySubText}>Tap + to add your first task</Text>
+          </View>
         }
       />
+
+
       <Pressable style={styles.fab} onPress={() => router.push('/addTask')}>
         <Text style={styles.fabText}>+</Text>
       </Pressable>
     </View>
   );
 }
- 
+
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: '#f5f5f5' },
+  container: { flex: 1, backgroundColor: '#F0F0F7' },
+
   header: {
     backgroundColor: '#6C63FF',
     padding: 24,
-    paddingTop: 50,
+    paddingTop: 55,
+    paddingBottom: 30,
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    borderBottomLeftRadius: 28,
+    borderBottomRightRadius: 28,
   },
-  date: { color: 'rgba(255,255,255,0.7)', fontSize: 13 },
-  title: { color: 'white', fontSize: 28, fontWeight: 'bold', marginTop: 4 },
+  greeting: { color: 'rgba(255,255,255,0.75)', fontSize: 14, marginBottom: 4 },
+  title: { color: 'white', fontSize: 30, fontWeight: '800' },
+  date: { color: 'rgba(255,255,255,0.6)', fontSize: 12, marginTop: 4 },
+  taskCount: {
+    backgroundColor: 'rgba(255,255,255,0.2)',
+    borderRadius: 16,
+    padding: 14,
+    alignItems: 'center',
+    minWidth: 64,
+  },
+  taskCountNumber: { color: 'white', fontSize: 26, fontWeight: '800' },
+  taskCountLabel: { color: 'rgba(255,255,255,0.8)', fontSize: 11, marginTop: 2 },
+
   taskCard: {
     backgroundColor: 'white',
-    marginVertical: 6,
-    padding: 16,
-    borderRadius: 12,
-    elevation: 2,
+    marginVertical: 7,
+    borderRadius: 16,
+    flexDirection: 'row',
+    overflow: 'hidden',
+    elevation: 3,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.08,
+    shadowRadius: 8,
   },
+  priorityBar: {
+    width: 5,
+    borderTopLeftRadius: 16,
+    borderBottomLeftRadius: 16,
+  },
+  taskContent: { flex: 1, padding: 14 },
   taskTop: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
     marginBottom: 6,
   },
+  taskTitle: { fontSize: 16, fontWeight: '700', color: '#1a1a2e', flex: 1, marginRight: 8 },
+  completed: { textDecorationLine: 'line-through', color: '#aaa' },
+  taskDescription: { fontSize: 13, color: '#888', marginBottom: 8, lineHeight: 18 },
+  taskDate: { fontSize: 12, color: '#aaa', marginBottom: 10 },
+
   priorityBadge: {
     paddingHorizontal: 10,
     paddingVertical: 4,
     borderRadius: 20,
   },
-  priorityText: {
-    fontSize: 11,
-    fontWeight: '600',
-    textTransform: 'capitalize',
+  priorityText: { fontSize: 11, fontWeight: '700', textTransform: 'capitalize' },
+
+  actionRow: { flexDirection: 'row', gap: 8 },
+  editBtn: {
+    flex: 1,
+    backgroundColor: '#F0EEFF',
+    paddingVertical: 8,
+    borderRadius: 10,
+    alignItems: 'center',
   },
-  taskTitle: { fontSize: 20, fontWeight: '800' },
-  taskDescription: { fontSize: 13, color: '#666', marginBottom: 6 },
-  taskDate: { fontSize: 12, color: '#999', marginTop: 2 },
-  completed: { textDecorationLine: 'line-through', color: '#aaa' },
-  emptyText: { textAlign: 'center', marginTop: 60, color: '#aaa', fontSize: 16 
+  editBtnText: { color: '#6C63FF', fontSize: 12, fontWeight: '700' },
+  deleteBtn: {
+    flex: 1,
+    backgroundColor: '#FFF0F0',
+    paddingVertical: 8,
+    borderRadius: 10,
+    alignItems: 'center',
   },
+  deleteBtnText: { color: '#FF5B5B', fontSize: 12, fontWeight: '700' },
+
+  emptyContainer: { alignItems: 'center', marginTop: 80 },
+  emptyIcon: { fontSize: 48, marginBottom: 12 },
+  emptyText: { fontSize: 18, fontWeight: '700', color: '#555' },
+  emptySubText: { fontSize: 13, color: '#aaa', marginTop: 6 },
+
   fab: {
     position: 'absolute',
-    bottom: 24,
+    bottom: 28,
     alignSelf: 'center',
     backgroundColor: '#6C63FF',
-    width: 60,
-    height: 60,
-    borderRadius: 30,
+    width: 64,
+    height: 64,
+    borderRadius: 32,
     justifyContent: 'center',
     alignItems: 'center',
-    elevation: 5,
+    elevation: 8,
+    shadowColor: '#6C63FF',
+    shadowOffset: { width: 0, height: 6 },
+    shadowOpacity: 0.4,
+    shadowRadius: 10,
   },
-  fabText: { color: 'white', fontSize: 30, fontWeight: 'bold' 
+  fabText: { color: 'white', fontSize: 32, fontWeight: '300', marginTop: -2 },
+  completeBtn: {
+    flex: 1,
+    backgroundColor: '#F0F0F0',
+    paddingVertical: 8,
+    borderRadius: 10,
+    alignItems: 'center',
   },
-  deleteBtn: {
-    marginTop: 8,
-    alignSelf: 'flex-end',
+  completedBtn: {
+    backgroundColor: '#E8F5E9',
   },
-  deleteBtnText: {
-    color: '#FF5B5B',
-    fontSize: 13,
-    fontWeight: '600',
+  completeBtnText: {
+    color: '#888',
+    fontSize: 12,
+    fontWeight: '700',
+  },
+  completedBtnText: {
+    color: '#4CAF50',
   },
 });
