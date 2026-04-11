@@ -1,6 +1,6 @@
 import { View, Text, TextInput, Pressable, StyleSheet } from "react-native";
 import { useState } from "react";
-import { auth } from "../../lib/firebase";
+import { auth } from "@/lib/firebase";
 import { createUserWithEmailAndPassword } from "firebase/auth";
 import { router } from "expo-router";
 

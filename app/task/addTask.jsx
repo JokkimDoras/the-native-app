@@ -1,44 +1,37 @@
 import { View, Text, TextInput, Pressable, StyleSheet } from 'react-native';
-import { useState, useEffect } from 'react';
-import { db } from '@/lib/firebase';
-import { doc, getDoc, updateDoc } from 'firebase/firestore';
-import { router, useLocalSearchParams } from 'expo-router';
+import { useState } from 'react';
+import { db, auth } from '@/lib/firebase';
+import { collection, addDoc } from 'firebase/firestore';
+import { router } from 'expo-router';
+import { TasK } from '../../types/task'
 
-export default function EditTaskScreen() {
-  const { id } = useLocalSearchParams();
+
+export default function AddTaskScreen() {
   const [title, setTitle] = useState('');
   const [description, setDescription] = useState('');
   const [dueDate, setDueDate] = useState('');
   const [priority, setPriority] = useState('low');
   const [error, setError] = useState('');
 
-  useEffect(() => {
-    const fetchTask = async () => {
-      const taskDoc = await getDoc(doc(db, 'tasks', id as string));
-      if (taskDoc.exists()) {
-        const data = taskDoc.data();
-        setTitle(data.title);
-        setDescription(data.description);
-        setDueDate(data.dueDate);
-        setPriority(data.priority);
-      }
-    };
-    fetchTask();
-  }, [id]);
-
-  const handleUpdate = async () => {
+  const handleAddTask = async () => {
     if (!title.trim()) {
       setError('Title is required');
       return;
     }
 
     try {
-      await updateDoc(doc(db, 'tasks', id as string), {
+      const user = auth.currentUser;
+      if (!user) return;
+
+      await addDoc(collection(db, 'tasks'), {
         title,
         description,
         dueDate,
         priority,
+        completed: false,
+        userId: user.uid,
       });
+
       router.back();
     } catch (err) {
       setError('Something went wrong. Try again');
@@ -47,7 +40,7 @@ export default function EditTaskScreen() {
 
   return (
     <View style={styles.container}>
-      <Text style={styles.heading}>Edit Task</Text>
+      <Text style={styles.heading}>Add New Task</Text>
 
       <TextInput
         placeholder="Title"
@@ -65,7 +58,7 @@ export default function EditTaskScreen() {
       />
 
       <TextInput
-        placeholder="Due Date (e.g. 2026-04-15)"
+        placeholder="Due Date (e.g. 11-04-2026 )"
         style={styles.input}
         value={dueDate}
         onChangeText={setDueDate}
@@ -88,8 +81,8 @@ export default function EditTaskScreen() {
 
       {error ? <Text style={styles.errorText}>{error}</Text> : null}
 
-      <Pressable style={styles.button} onPress={handleUpdate}>
-        <Text style={styles.buttonText}>Update Task</Text>
+      <Pressable style={styles.button} onPress={handleAddTask}>
+        <Text style={styles.buttonText}>Add Task</Text>
       </Pressable>
 
       <Pressable onPress={() => router.back()}>
