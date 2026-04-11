@@ -1,6 +1,6 @@
 import { View, Text, StyleSheet, FlatList, Pressable } from 'react-native';
 import { router } from 'expo-router';
-import { collection, query, where, onSnapshot, orderBy, deleteDoc, doc ,updateDoc} from "firebase/firestore";
+import { collection, query, where, onSnapshot, orderBy, deleteDoc, doc, updateDoc } from "firebase/firestore";
 import { useState, useEffect } from "react";
 import { db, auth } from '@/lib/firebase';
 
@@ -16,6 +16,8 @@ type Task = {
 
 export default function HomeScreen() {
   const [tasks, setTasks] = useState<Task[]>([]);
+  const [filter, setFilter] = useState<'all' | 'completed' | 'incomplete'>('all');
+  const [priorityFilter, setPriorityFilter] = useState<'all' | 'low' | 'medium' | 'high'>('all');
 
   useEffect(() => {
     const unsubscribeAuth = auth.onAuthStateChanged((user) => {
@@ -57,6 +59,19 @@ export default function HomeScreen() {
     return { bg: '#E8F5E9', text: '#4CAF50' };
   };
 
+  const filteredTasks = tasks.filter(task => {
+    const statusMatch =
+      filter === 'all' ? true :
+      filter === 'completed' ? task.completed :
+      !task.completed;
+
+    const priorityMatch =
+      priorityFilter === 'all' ? true :
+      task.priority === priorityFilter;
+
+    return statusMatch && priorityMatch;
+  });
+
   return (
     <View style={styles.container}>
 
@@ -72,8 +87,36 @@ export default function HomeScreen() {
         </View>
       </View>
 
+      <View style={styles.filterRow}>
+        {['all', 'incomplete', 'completed'].map((f) => (
+          <Pressable
+            key={f}
+            style={[styles.filterBtn, filter === f && styles.filterBtnActive]}
+            onPress={() => setFilter(f as any)}
+          >
+            <Text style={[styles.filterBtnText, filter === f && styles.filterBtnTextActive]}>
+              {f}
+            </Text>
+          </Pressable>
+        ))}
+      </View>
+
+      <View style={styles.filterRow}>
+        {['all', 'low', 'medium', 'high'].map((p) => (
+          <Pressable
+            key={p}
+            style={[styles.filterBtn, priorityFilter === p && styles.filterBtnActive]}
+            onPress={() => setPriorityFilter(p as any)}
+          >
+            <Text style={[styles.filterBtnText, priorityFilter === p && styles.filterBtnTextActive]}>
+              {p}
+            </Text>
+          </Pressable>
+        ))}
+      </View>
+
       <FlatList
-        data={tasks}
+        data={filteredTasks}
         keyExtractor={(item) => item.id}
         contentContainerStyle={{ padding: 16, paddingBottom: 100 }}
         showsVerticalScrollIndicator={false}
@@ -81,9 +124,7 @@ export default function HomeScreen() {
           const colors = priorityColor(item.priority);
           return (
             <View style={styles.taskCard}>
-
               <View style={[styles.priorityBar, { backgroundColor: colors.text }]} />
-              
               <View style={styles.taskContent}>
                 <View style={styles.taskTop}>
                   <Text style={[styles.taskTitle, item.completed && styles.completed]} numberOfLines={1}>
@@ -104,33 +145,30 @@ export default function HomeScreen() {
 
                 <Text style={styles.taskDate}>📅 {item.dueDate}</Text>
 
-                
+                <View style={styles.actionRow}>
+                  <Pressable
+                    style={[styles.completeBtn, item.completed && styles.completedBtn]}
+                    onPress={() => handleToggleComplete(item.id, item.completed)}
+                  >
+                    <Text style={[styles.completeBtnText, item.completed && styles.completedBtnText]}>
+                      {item.completed ? '✅ Done' : '⬜ Todo'}
+                    </Text>
+                  </Pressable>
 
+                  <Pressable
+                    style={styles.editBtn}
+                    onPress={() => router.push(`/${item.id}`)}
+                  >
+                    <Text style={styles.editBtnText}>✏️ Edit</Text>
+                  </Pressable>
 
-<View style={styles.actionRow}>
-  <Pressable
-    style={[styles.completeBtn, item.completed && styles.completedBtn]}
-    onPress={() => handleToggleComplete(item.id, item.completed)}
-  >
-    <Text style={[styles.completeBtnText, item.completed && styles.completedBtnText]}>
-      {item.completed ? '✅ Done' : '⬜ Todo'}
-    </Text>
-  </Pressable>
-
-  <Pressable
-    style={styles.editBtn}
-    onPress={() => router.push(`/${item.id}`)}
-  >
-    <Text style={styles.editBtnText}>✏️ Edit</Text>
-  </Pressable>
-
-  <Pressable
-    style={styles.deleteBtn}
-    onPress={() => handleDelete(item.id)}
-  >
-    <Text style={styles.deleteBtnText}>🗑️ Delete</Text>
-  </Pressable>
-</View>
+                  <Pressable
+                    style={styles.deleteBtn}
+                    onPress={() => handleDelete(item.id)}
+                  >
+                    <Text style={styles.deleteBtnText}>🗑️ Delete</Text>
+                  </Pressable>
+                </View>
               </View>
             </View>
           );
@@ -144,7 +182,7 @@ export default function HomeScreen() {
         }
       />
 
-
+      
       <Pressable style={styles.fab} onPress={() => router.push('/addTask')}>
         <Text style={styles.fabText}>+</Text>
       </Pressable>
@@ -154,7 +192,6 @@ export default function HomeScreen() {
 
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: '#F0F0F7' },
-
   header: {
     backgroundColor: '#6C63FF',
     padding: 24,
@@ -178,7 +215,6 @@ const styles = StyleSheet.create({
   },
   taskCountNumber: { color: 'white', fontSize: 26, fontWeight: '800' },
   taskCountLabel: { color: 'rgba(255,255,255,0.8)', fontSize: 11, marginTop: 2 },
-
   taskCard: {
     backgroundColor: 'white',
     marginVertical: 7,
@@ -191,11 +227,7 @@ const styles = StyleSheet.create({
     shadowOpacity: 0.08,
     shadowRadius: 8,
   },
-  priorityBar: {
-    width: 5,
-    borderTopLeftRadius: 16,
-    borderBottomLeftRadius: 16,
-  },
+  priorityBar: { width: 5 },
   taskContent: { flex: 1, padding: 14 },
   taskTop: {
     flexDirection: 'row',
@@ -207,15 +239,19 @@ const styles = StyleSheet.create({
   completed: { textDecorationLine: 'line-through', color: '#aaa' },
   taskDescription: { fontSize: 13, color: '#888', marginBottom: 8, lineHeight: 18 },
   taskDate: { fontSize: 12, color: '#aaa', marginBottom: 10 },
-
-  priorityBadge: {
-    paddingHorizontal: 10,
-    paddingVertical: 4,
-    borderRadius: 20,
-  },
+  priorityBadge: { paddingHorizontal: 10, paddingVertical: 4, borderRadius: 20 },
   priorityText: { fontSize: 11, fontWeight: '700', textTransform: 'capitalize' },
-
-  actionRow: { flexDirection: 'row', gap: 8 },
+  actionRow: { flexDirection: 'row', gap: 8, marginTop: 8 },
+  completeBtn: {
+    flex: 1,
+    backgroundColor: '#F0F0F0',
+    paddingVertical: 8,
+    borderRadius: 10,
+    alignItems: 'center',
+  },
+  completedBtn: { backgroundColor: '#E8F5E9' },
+  completeBtnText: { color: '#888', fontSize: 12, fontWeight: '700' },
+  completedBtnText: { color: '#4CAF50' },
   editBtn: {
     flex: 1,
     backgroundColor: '#F0EEFF',
@@ -232,12 +268,10 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   deleteBtnText: { color: '#FF5B5B', fontSize: 12, fontWeight: '700' },
-
   emptyContainer: { alignItems: 'center', marginTop: 80 },
   emptyIcon: { fontSize: 48, marginBottom: 12 },
   emptyText: { fontSize: 18, fontWeight: '700', color: '#555' },
   emptySubText: { fontSize: 13, color: '#aaa', marginTop: 6 },
-
   fab: {
     position: 'absolute',
     bottom: 28,
@@ -255,22 +289,22 @@ const styles = StyleSheet.create({
     shadowRadius: 10,
   },
   fabText: { color: 'white', fontSize: 32, fontWeight: '300', marginTop: -2 },
-  completeBtn: {
+  filterRow: {
+    flexDirection: 'row',
+    paddingHorizontal: 16,
+    paddingTop: 12,
+    gap: 8,
+  },
+  filterBtn: {
     flex: 1,
-    backgroundColor: '#F0F0F0',
     paddingVertical: 8,
-    borderRadius: 10,
+    borderRadius: 20,
     alignItems: 'center',
+    backgroundColor: 'white',
+    borderWidth: 1,
+    borderColor: '#eee',
   },
-  completedBtn: {
-    backgroundColor: '#E8F5E9',
-  },
-  completeBtnText: {
-    color: '#888',
-    fontSize: 12,
-    fontWeight: '700',
-  },
-  completedBtnText: {
-    color: '#4CAF50',
-  },
+  filterBtnActive: { backgroundColor: '#6C63FF', borderColor: '#6C63FF' },
+  filterBtnText: { fontSize: 12, fontWeight: '600', color: '#888', textTransform: 'capitalize' },
+  filterBtnTextActive: { color: 'white' },
 });
